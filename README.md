@@ -76,6 +76,8 @@ Flutter 多端独立短剧 / 影视应用，原名「短剧库 APP」。站源�
 
 ### GitHub Actions
 
+Windows 用户可手动运行独立工作流 **Build iOS IPA**（`.github/workflows/ios-ipa.yml`），在 GitHub 的 macOS runner 上分别执行默认版和 `--all-sources` 构建。进入仓库「Actions → Build iOS IPA → Run workflow」，成功后从本次运行的 Artifacts 下载 `hongguojian-ios-unsigned`（红果鉴）或 `zhenguojian-ios-unsigned`（真果鉴）。每份包含未签名 `.ipa`、`.app` ZIP 和 SHA256 校验文件，保留 14 天；IPA 必须签名后才能安装到 iPhone。此工作流不自动发布 Release，新增流程尚未在云端验证或进行真机验收。
+
 推送 `main` / `master`、`v*` 标签、提交 PR，或手动运行 **Build app packages**，会先检查再构建两版（默认与 `--all-sources`）：
 
 | 产物 | 内容 |

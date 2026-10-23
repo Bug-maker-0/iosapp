@@ -1,0 +1,89 @@
+name: Build iOS IPA
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios:
+    name: iOS / ${{ matrix.edition }}
+    runs-on: macos-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - edition: hongguojian
+            arguments: ''
+          - edition: zhenguojian
+            arguments: '--all-sources'
+    env:
+      GOPROXY: https://proxy.golang.org,direct
+      GOSUMDB: sum.golang.org
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: native/go.mod
+          cache-dependency-path: native/go.sum
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.4'
+          channel: stable
+          cache: true
+      - name: Check Xcode and CocoaPods
+        run: |
+          xcodebuild -version
+          xcrun --sdk iphoneos --show-sdk-path
+          if ! command -v pod >/dev/null 2>&1; then
+            gem install --user-install --no-document cocoapods
+            echo "$(ruby -r rubygems -e 'puts Gem.user_dir')/bin" >> "$GITHUB_PATH"
+          fi
+      - name: Install locked Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Build unsigned IPA
+        run: python3 scripts/build_ios.py ${{ matrix.arguments }}
+      - name: Verify IPA structure and checksums
+        env:
+          EDITION: ${{ matrix.edition }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import os
+          import zipfile
+          from pathlib import Path
+
+          output = Path('dist/ios')
+          packages = list(output.glob(f'{os.environ["EDITION"]}-*-ios-unsigned.ipa'))
+          if len(packages) != 1:
+              raise SystemExit('Expected exactly one IPA for this edition')
+          with zipfile.ZipFile(packages[0]) as package:
+              for entry in ('Payload/Runner.app/Info.plist', 'Payload/Runner.app/Runner'):
+                  if entry not in package.namelist():
+                      raise SystemExit(f'Missing IPA entry: {entry}')
+          for line in (output / 'SHA256SUMS.txt').read_text().splitlines():
+              expected, name = line.split('  ', 1)
+              with (output / name).open('rb') as stream:
+                  actual = hashlib.file_digest(stream, 'sha256').hexdigest()
+              if actual != expected:
+                  raise SystemExit(f'Checksum mismatch: {name}')
+          print(packages[0])
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.edition }}-ios-unsigned
+          path: |
+            dist/ios/*.ipa
+            dist/ios/*-unsigned-app.zip
+            dist/ios/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
+      - name: Installation note
+        run: |
+          echo '### iOS IPA' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Download the artifact for this edition. The IPA is unsigned and must be signed before installation on an iPhone. No device acceptance testing has been performed.' >> "$GITHUB_STEP_SUMMARY"
