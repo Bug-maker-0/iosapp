@@ -2,7 +2,7 @@
 
 > ⚠️ **免责声明**：本项目源码来自网上大名鼎鼎的**鱼佬**（原作者）。我只是把它拿来打包、测试着玩，方便自己用，**不保证任何可用性，随时可能删库**。
 
-Flutter 多端独立短剧 / 影视应用，原名「短剧库 APP」。站源请求、解析、下载和播放均在设备上完成，不依赖自建服务。当前源码版本：**0.2.51+57**。
+Flutter 多端独立短剧 / 影视应用，原名「短剧库 APP」。站源请求、解析、下载和播放均在设备上完成，不依赖自建服务。当前源码版本：**0.2.64+71**。
 
 本轮在 0.2.50 基线上新增两个原生站源：**韩小圈**（`hanxiaoquan`，韩剧 / 韩国电影 / 韩国综艺 / 韩国动漫）与**鬼片网**（`guipian`，鬼片 / 电视剧 / 动漫）。默认可见站源顺序为：**红果 → 韩小圈 → 鬼片 → 青空**。
 
@@ -70,25 +70,24 @@ Flutter 多端独立短剧 / 影视应用，原名「短剧库 APP」。站源�
 | Android 8.0+ | 三架构（arm64-v8a / armeabi-v7a / x86_64）APK；同一签名可覆盖升级 |
 | Windows 10/11 x64 | 完整 ZIP 解压后运行 `hongguojian.exe` / `zhenguojian.exe`，保留所有 DLL 与 `data`；局域网原生发现依赖 Windows 10 1903+ |
 | Android TV | 与手机共用源码，自动识别电视模式并保持横屏；待电视 / 盒子实机验收 |
-| iOS 15.1+ | 已加入工程、Go 核心链接、媒体依赖、文件管理与构建脚本；iOS 播放页禁用 media_kit_video 硬件纹理加速以规避 libmpv 渲染崩溃；待 Xcode 构建与真机验收，无已签名 IPA |
+| iOS 15.1+ | 已在 GitHub macOS runner 上通过两版 Xcode 编译、IPA 结构与 SHA256 检查，生成未签名 IPA；iOS 播放页禁用 media_kit_video 硬件纹理加速以规避 libmpv 渲染崩溃；待签名与真机验收 |
 
 `INSTALL_FAILED_NO_MATCHING_ABIS` 表示 APK 与设备架构不匹配，请更换对应架构安装包。
 
 ### GitHub Actions
 
-Windows 用户可手动运行独立工作流 **Build iOS IPA**（`.github/workflows/ios-ipa.yml`），在 GitHub 的 macOS runner 上分别执行默认版和 `--all-sources` 构建。进入仓库「Actions → Build iOS IPA → Run workflow」，成功后从本次运行的 Artifacts 下载 `hongguojian-ios-unsigned`（红果鉴）或 `zhenguojian-ios-unsigned`（真果鉴）。每份包含未签名 `.ipa`、`.app` ZIP 和 SHA256 校验文件，保留 14 天；IPA 必须签名后才能安装到 iPhone。此工作流不自动发布 Release，新增流程尚未在云端验证或进行真机验收。
+Windows 用户可手动运行独立工作流 **Build iOS IPA**（`.github/workflows/ios-ipa.yml`），在 GitHub 的 macOS runner 上分别执行默认版和 `--all-sources` 构建。进入仓库「Actions → Build iOS IPA → Run workflow」，成功后从本次运行的 Artifacts 下载 `hongguojian-ios-unsigned`（红果鉴）或 `zhenguojian-ios-unsigned`（真果鉴）。每份包含未签名 `.ipa`、`.app` ZIP 和 SHA256 校验文件，保留 14 天；IPA 必须签名后才能安装到 iPhone。此工作流不自动发布 Release，已通过云端编译与打包检查，尚未进行签名或真机验收。
 
-云端构建修复：锁文件已补齐 `video_player` 及六个传递依赖，严格锁文件检查已通过；Xcode 已成功生成全站源版 `Runner.app`。IPA 打包已修正为保留顶层 `Payload/` 目录，并在构建脚本与工作流中检查必要文件；修正后的打包流程待云端复验，尚未进行签名或真机验收。
+云端构建修复：锁文件已补齐 `video_player` 及六个传递依赖，严格锁文件检查已通过。IPA 打包已修正为保留顶层 `Payload/` 目录，并在构建脚本与工作流中检查必要文件。两版编译、打包、结构与 SHA256 检查已在 [本次 Actions 运行](https://github.com/Bug-maker-0/iosapp/actions/runs/39981042772) 中通过；此结果不代表播放功能或真机安装已验收。
 
-推送 `main` / `master`、`v*` 标签、提交 PR，或手动运行 **Build app packages**，会先检查再构建两版（默认与 `--all-sources`）：
+原有工作流 **Build app packages** 在推送 `main` / `master`、`v*` 标签、提交 PR 或手动运行时构建两版 Android 包（默认与 `--all-sources`）；其中 iOS 和 Windows job 当前停用。iOS 使用上方独立手动工作流。对应产物如下：
 
 | 产物 | 内容 |
 | --- | --- |
 | `*-android` | 三种架构 APK 和 SHA256 |
-| `*-windows` | 完整 ZIP 和 SHA256 |
-| `*-ios-unsigned` | 未签名 `.app` ZIP 和 SHA256，不能直接当已签名 IPA 安装 |
+| `*-ios-unsigned` | 未签名 IPA、`.app` ZIP 和 SHA256，需签名后安装 |
 
-推送 `main` 且 android / ios / windows 全部构建成功时，自动创建 / 更新 GitHub Release（tag `app-v{version}`）。发布新版本前需先在 `pubspec.yaml` 提升 `version`，否则会覆盖同名 tag 的 Release。
+原有工作流在两版 Android 包全部构建成功时，自动创建 / 更新 GitHub Release（tag `app-v{version}`）。独立 iOS 工作流只上传 Artifacts。发布新版本前需先在 `pubspec.yaml` 提升 `version`，否则会覆盖同名 tag 的 Release。
 
 Android 正式发布使用同一签名并递增构建号，在仓库 Secrets 配置：`ANDROID_KEYSTORE_BASE64`、`ANDROID_KEYSTORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。未配置时生成 debug 签名预览包。
 
@@ -103,7 +102,7 @@ keyPassword=你的密码
 
 ## 开发与构建
 
-Flutter `3.47.4`、Dart `3.12+`、Go `1.24.1+`、Python `3.10+`。Android 需要 JDK 17、SDK 36、NDK `28.2.13676358`；Windows 需要 Visual Studio C++ 桌面组件及 MinGW-w64 x64；iOS 需要 macOS、完整 Xcode 和 CocoaPods。
+Flutter `3.47.4`、Dart `3.13+`、Go `1.24.1+`、Python `3.10+`。Android 需要 JDK 17、SDK 36、NDK `28.2.13676358`；Windows 需要 Visual Studio C++ 桌面组件及 MinGW-w64 x64；iOS 需要 macOS、完整 Xcode 和 CocoaPods。
 
 构建脚本对子进程默认设置 `GOPROXY=https://goproxy.cn,direct`、`GOSUMDB=off`，同名环境变量可覆盖。
 
