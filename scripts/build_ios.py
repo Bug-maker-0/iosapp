@@ -7,6 +7,7 @@ import shlex
 import shutil
 import subprocess
 import sys
+import zipfile
 from pathlib import Path
 
 from app_build import BuildVariant, add_variant_argument
@@ -116,7 +117,11 @@ def main():
         ipa = output / f'{variant.slug}-{version}-ios-unsigned.ipa'
         if ipa.exists():
             ipa.unlink()
-        run(['ditto', '-c', '-k', '--sequesterRsrc', str(payload), str(ipa)])
+        run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(payload), str(ipa)])
+        with zipfile.ZipFile(ipa) as package:
+            for entry in ['Payload/Runner.app/Info.plist', 'Payload/Runner.app/Runner']:
+                if entry not in package.namelist():
+                    raise SystemExit('IPA 结构不完整：' + entry)
         shutil.rmtree(payload)
         artifacts.append(ipa)
     if not artifacts:
